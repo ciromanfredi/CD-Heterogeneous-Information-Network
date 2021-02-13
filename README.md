@@ -38,7 +38,7 @@ Please refer to the ```Transform``` folder for more details.
 ### Stage 3: Model
 
 We provide 4 HIN baseline implementaions: 
-- 1 Proximity-Preserving Methods (```HIN2Vec```, ```AspEm```); 
+- 1 Proximity-Preserving Methods (```HIN2Vec```); 
 - 2 Message-Passing Methods (```R-GCN```, ```HAN```); 
 - 1 Relation-Learning Methods (```ComplEx```).
 

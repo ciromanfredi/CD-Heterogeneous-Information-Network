@@ -20,10 +20,10 @@ Users need to specify the following input parameters when calling the function
  ```Macro-F1```,```Micro-F1```,```Accuracy```,```Precision```,```Recall```
 
 Run :
-```from CDHIN import community_detection_personale```
-```community_detection_personale(name_model,dataset,attributed,supervised)```
+-**```from CDHIN import community_detection_personale```**
+-**```community_detection_personale(name_model,dataset,attributed,supervised)```**
 to complete *Stage 4: Evaluate*.
 
 The evaluation results are stored in :
-```PubMedScore.txt``` if you choose PubMed dataset,
-```YelpScore.txt``` if you choose Yelp dataset
+-**```PubMedScore.txt```** if you choose PubMed dataset,
+-**```YelpScore.txt```** if you choose Yelp dataset
