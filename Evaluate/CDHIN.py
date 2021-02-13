@@ -1,17 +1,11 @@
 import numpy as np
-from sklearn.svm import LinearSVC
-from sklearn.metrics import f1_score, normalized_mutual_info_score, adjusted_rand_score, accuracy_score, precision_score, recall_score
 from sklearn.model_selection import StratifiedKFold, train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.manifold import TSNE
-from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 from collections import Counter
 from sklearn.cluster import KMeans
 import networkx as nx
 import networkx.algorithms.community as nxcom
-from sklearn.neural_network import MLPClassifier
 float_formatter = "{:.3f}".format
 np.set_printoptions(formatter={'float_kind':float_formatter})
     
@@ -87,18 +81,16 @@ def CreoEmbFromPath(emb_file_path):
         embeddings=np.array(embeddings).astype(np.float32)
     return train_para, embeddings
 
-def writeScore(name_model,dataset,attributed,supervised,macro,micro,accuracy,precision,recall,size=None):
-  f = open("/content/drive/MyDrive/Colab Notebooks/HNE-master/Evaluate/"+dataset+"_Score.txt", "a+")
-  f.write("Model: "+str(name_model)+", Dataset: "+str(dataset)+", Attributed: "+str(attributed)+", Supervised: "+str(supervised))
-  if size:
-      f.write("Train_Size: "+str(1-size)+" Test_Size: "+str(size))
-  f.write('\nMacro-F1: '+str(np.mean(macro))+' STD: '+str(np.std(macro)))
-  f.write('\nMicro-F1: '+str(np.mean(micro))+' STD: '+str(np.std(micro)))
-  f.write('\nAccuracy: '+str(np.mean(accuracy))+' STD: '+str(np.std(accuracy)))
-  f.write('\nPrecision: '+str(np.mean(precision))+' STD: '+str(np.std(precision)))
-  f.write('\nRecall: '+str(np.mean(recall))+' STD: '+str(np.std(recall)))
-  f.write("\n\n")
-  f.close()
+def writeScore(name_model,dataset,attributed,supervised,macro,micro,accuracy,precision,recall,classifier):
+    f = open("/content/drive/MyDrive/Colab Notebooks/HNE-master/Evaluate/"+dataset+"_Score.txt", "a+")
+    f.write("Model: "+str(name_model)+", Dataset: "+str(dataset)+", Attributed: "+str(attributed)+", Supervised: "+str(supervised)+", Classifier: "+str(classifier))
+    f.write('\nMacro-F1: '+str(np.mean(macro))+' STD: '+str(np.std(macro)))
+    f.write('\nMicro-F1: '+str(np.mean(micro))+' STD: '+str(np.std(micro)))
+    f.write('\nAccuracy: '+str(np.mean(accuracy))+' STD: '+str(np.std(accuracy)))
+    f.write('\nPrecision: '+str(np.mean(precision))+' STD: '+str(np.std(precision)))
+    f.write('\nRecall: '+str(np.mean(recall))+' STD: '+str(np.std(recall)))
+    f.write("\n\n")
+    f.close()
 
 def writeClusteringScore(name_model,dataset,attributed,supervised,nmi_list,ari_list):
     f = open("/content/drive/MyDrive/Colab Notebooks/HNE-master/Evaluate/"+dataset+"_Score.txt", "a+")
@@ -110,89 +102,88 @@ def writeClusteringScore(name_model,dataset,attributed,supervised,nmi_list,ari_l
     f.write("\n\n")
     f.close()
 
+from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
+
+def single_label_metrics(test_labels,preds):
+    macro=f1_score(test_labels, preds, average='macro')
+    micro=f1_score(test_labels, preds, average='micro')
+    accuracy=accuracy_score(test_labels,preds)
+    precision=precision_score(test_labels, preds, average="macro")
+    recall=recall_score(test_labels, preds, average="macro")
+    return preds,macro,micro,accuracy,precision,recall
+
+def multi_label_metrics(test_labels,preds):
+    scores=f1_score(test_labels, preds, average='binary')
+    accuracylist=accuracy_score(test_labels,preds)
+    precisionlist=precision_score(test_labels, preds, average="binary")
+    recalllist=recall_score(test_labels, preds, average="binary")
+    return scores, accuracylist, precisionlist, recalllist
+
+from sklearn.svm import LinearSVC
 def SVCImpl(train_embeddings, train_labels,test_embeddings,test_labels,seed,max_iter,single_label=True):
     clf = LinearSVC(random_state=seed, max_iter=max_iter)
     clf.fit(train_embeddings, train_labels)
     predssvc = clf.predict(test_embeddings)
     if single_label==True:
-        macrosvc,microsvc,accuracysvc,precisionsvc,recallsvc=[],[],[],[],[]
-        macrosvc.append(f1_score(test_labels, predssvc, average='macro'))
-        microsvc.append(f1_score(test_labels, predssvc, average='micro'))
-        accuracysvc.append(accuracy_score(test_labels,predssvc))
-        precisionsvc.append(precision_score(test_labels, predssvc, average="macro"))
-        recallsvc.append(recall_score(test_labels, predssvc, average="macro"))
-        return predssvc, macrosvc, microsvc, accuracysvc, precisionsvc, recallsvc
+        return single_label_metrics(test_labels,predssvc)
     else:
-        predssvc, scoressvc, accuracylistsvc, precisionlistsvc, recalllistsvc=[], [], [], [], []
-        scoressvc.append(f1_score(test_labels, predssvc, average='binary'))
-        accuracylistsvc.append(accuracy_score(test_labels,predssvc))
-        precisionlistsvc.append(precision_score(test_labels, predssvc, average="binary"))
-        recalllistsvc.append(recall_score(test_labels, predssvc, average="binary"))
-        return predssvc, scoressvc, accuracylistsvc, precisionlistsvc, recalllistsvc
+        return multi_label_metrics(test_labels,predssvc)
 
-def LogRegImpl(train_embeddings, train_labels,test_embeddings,test_labels,seed,max_iter,single_label=True):
-    
+from sklearn.linear_model import LogisticRegression
+def LogRegImpl(train_embeddings, train_labels,test_embeddings,test_labels,seed,max_iter,single_label=True): 
     logreg = LogisticRegression(random_state=seed, max_iter=max_iter)
     logreg.fit(train_embeddings, train_labels)
     predslogreg = logreg.predict(test_embeddings)
     if single_label==True:
-        macrologreg,micrologreg,accuracylogreg,precisionlogreg,recalllogreg=[],[],[],[],[]
-        macrologreg.append(f1_score(test_labels, predslogreg, average='macro'))
-        micrologreg.append(f1_score(test_labels, predslogreg, average='micro'))
-        accuracylogreg.append(accuracy_score(test_labels,predslogreg))
-        precisionlogreg.append(precision_score(test_labels, predslogreg, average="macro"))
-        recalllogreg.append(recall_score(test_labels, predslogreg, average="macro"))
-        return predslogreg,macrologreg,micrologreg,accuracylogreg,precisionlogreg,recalllogreg
+        return single_label_metrics(test_labels,predslogreg)
     else:
-        scoreslogreg,accuracylistlogreg,precisionlistlogreg,recalllistlogreg = [], [], [], []
-        scoreslogreg.append(f1_score(test_labels, predslogreg, average='binary'))
-        accuracylistlogreg.append(accuracy_score(test_labels,predslogreg))
-        precisionlistlogreg.append(precision_score(test_labels, predslogreg, average="binary"))
-        recalllistlogreg.append(recall_score(test_labels, predslogreg, average="binary"))
-        return scoreslogreg,accuracylistlogreg,precisionlistlogreg,recalllistlogreg
+        return multi_label_metrics(test_labels,predslogreg)
 
-def RFImpl(train_embeddings, train_labels,test_embeddings,test_labels,seed,max_iter,single_label=True):
-    
-    rf = RandomForestClassifier(random_state=seed, max_iter=max_iter)
+from sklearn.ensemble import RandomForestClassifier
+def RFImpl(train_embeddings, train_labels,test_embeddings,test_labels,seed,max_iter,single_label=True): 
+    rf = RandomForestClassifier()
     rf.fit(train_embeddings, train_labels)
     predsrf = rf.predict(test_embeddings)
     if single_label==True:
-        macrorf,microrf,accuracyrf,precisionrf,recallrf=[],[],[],[],[]
-        macrorf.append(f1_score(test_labels, predsrf, average='macro'))
-        microrf.append(f1_score(test_labels, predsrf, average='micro'))
-        accuracyrf.append(accuracy_score(test_labels,predsrf))
-        precisionrf.append(precision_score(test_labels, predsrf, average="macro"))
-        recallrf.append(recall_score(test_labels, predsrf, average="macro"))
-        return predsrf,macrorf,microrf,accuracyrf,precisionrf,recallrf
+        return single_label_metrics(test_labels,predsrf)
     else:
-        scoresrf,accuracylistrf,precisionlistrf,recalllistrf = [], [], [], []
-        scoresrf.append(f1_score(test_labels, predsrf, average='binary'))
-        accuracylistrf.append(accuracy_score(test_labels,predsrf))
-        precisionlistrf.append(precision_score(test_labels, predsrf, average="binary"))
-        recalllistrf.append(recall_score(test_labels, predsrf, average="binary"))
-        return scoresrf,accuracylistrf,precisionlistrf,recalllistrf
+        return multi_label_metrics(test_labels,predsrf)
 
+from sklearn.neural_network import MLPClassifier
 def ADAMImpl(train_embeddings, train_labels,test_embeddings,test_labels,seed,max_iter,single_label=True):
     
     adam=MLPClassifier(max_iter=max_iter)
     adam.fit(train_embeddings, train_labels)
     predsadam = adam.predict(test_embeddings)
     if single_label==True:
-        macroadam,microadam,accuracyadam,precisionadam,recalladam=[],[],[],[],[]
-        macroadam.append(f1_score(test_labels, predsadam, average='macro'))
-        microadam.append(f1_score(test_labels, predsadam, average='micro'))
-        accuracyadam.append(accuracy_score(test_labels,predsadam))
-        precisionadam.append(precision_score(test_labels, predsadam, average="macro"))
-        recalladam.append(recall_score(test_labels, predsadam, average="macro"))
-        return predsadam,macroadam,microadam,accuracyadam,precisionadam,recalladam
+        return single_label_metrics(test_labels,predsadam)
     else:
-        scoresadam,accuracylistadam,precisionlistadam,recalllistadam=[],[],[],[]
-        scoresadam.append(f1_score(test_labels, predsadam, average='binary'))
-        accuracylistadam.append(accuracy_score(test_labels,predsadam))
-        precisionlistadam.append(precision_score(test_labels, predsadam, average="binary"))
-        recalllistadam.append(recall_score(test_labels, predsadam, average="binary"))
-        return scoresadam,accuracylistadam,precisionlistadam,recalllistadam
+        return multi_label_metrics(test_labels,predsadam)
 
+from skranger.ensemble import RangerForestClassifier
+def RangerForestIMPL(train_embeddings, train_labels,test_embeddings,test_labels,single_label=True):
+    rfc = RangerForestClassifier()
+    rfc.fit(train_embeddings, train_labels)
+    predsranger = rfc.predict(test_embeddings)
+    if single_label==True:
+        return single_label_metrics(test_labels,predsranger)
+
+from catboost import CatBoostClassifier
+def CatboostIMPL(train_embeddings, train_labels,test_embeddings,test_labels,single_label=True,iterations=2,learning_rate=1,depth=2):
+    catboost = CatBoostClassifier(iterations=iterations,learning_rate=learning_rate,depth=depth)
+    catboost.fit(train_embeddings, train_labels)
+    predscatboost = catboost.predict(test_embeddings)
+    if single_label==True:
+        return single_label_metrics(test_labels,predscatboost)
+
+import xgboost as xgb
+def xgboostIMPL(train_embeddings, train_labels,test_embeddings,test_labels,single_label=True,iterations=2,learning_rate=1,depth=2):
+    xgb_model = xgb.XGBClassifier(n_jobs=1).fit(train_embeddings, train_labels)
+    predsxgb = xgb_model.predict(test_embeddings)
+    if single_label==True:
+        return single_label_metrics(test_labels,predsxgb)
+
+from sklearn.metrics import confusion_matrix
 def ConfusionMatrixIMPL(test_labels,preds,txt="Confusion Matrix"):
     cm = confusion_matrix(test_labels,preds)
     cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
@@ -201,10 +192,13 @@ def ConfusionMatrixIMPL(test_labels,preds,txt="Confusion Matrix"):
 
 def unsupervised_single_class_single_label(full_embeddings, full_labels,n_splits=5,seed=21,max_iter=10000):    
     print("Start: unsupervised_single_class_single_label")
-    macrosvc,microsvc,accuracysvc,precisionsvc,recallsvc=[],[],[],[],[]
-    macrologreg,micrologreg,accuracylogreg,precisionlogreg,recalllogreg=[],[],[],[],[]
-    macrorf,microrf,accuracyrf,precisionrf,recallrf=[],[],[],[],[]
-    macroadam,microadam,accuracyadam,precisionadam,recalladam=[],[],[],[],[]
+    macrolistsvc,microlistsvc,accuracylistsvc,precisionlistsvc,recalllistsvc=[],[],[],[],[]
+    macrolistlogreg,microlistlogreg,accuracylistlogreg,precisionlistlogreg,recalllistlogreg=[],[],[],[],[]
+    macrolistrf,microlistrf,accuracylistrf,precisionlistrf,recalllistrf=[],[],[],[],[]
+    macrolistadam,microlistadam,accuracylistadam,precisionlistadam,recalllistadam=[],[],[],[],[]
+    macrolistranger,microlistranger,accuracylistranger,precisionlistranger,recalllistranger=[],[],[],[],[]
+    macrolistcatboost,microlistcatboost,accuracylistcatboost,precisionlistcatboost,recalllistcatboost=[],[],[],[],[]
+    macrolistxgboost,microlistxgboost,accuracylistxgboost,precisionlistxgboost,recalllistxgboost=[],[],[],[],[]
     
     skf = StratifiedKFold(n_splits=n_splits,shuffle=True,random_state=seed)
     index=0
@@ -214,43 +208,97 @@ def unsupervised_single_class_single_label(full_embeddings, full_labels,n_splits
         predslogreg,macrologreg,micrologreg,accuracylogreg,precisionlogreg,recalllogreg=LogRegImpl(full_embeddings[train_idx], full_labels[train_idx],full_embeddings[test_idx],full_labels[test_idx],seed,max_iter)
         predsrf,macrorf,microrf,accuracyrf,precisionrf,recallrf=RFImpl(full_embeddings[train_idx], full_labels[train_idx],full_embeddings[test_idx],full_labels[test_idx],seed,max_iter)
         predsadam,macroadam,microadam,accuracyadam,precisionadam,recalladam=ADAMImpl(full_embeddings[train_idx], full_labels[train_idx],full_embeddings[test_idx],full_labels[test_idx],seed,max_iter)
+        predsranger,macroranger,microranger,accuracyranger,precisionranger,recallranger=RangerForestIMPL(full_embeddings[train_idx], full_labels[train_idx],full_embeddings[test_idx],full_labels[test_idx])
+        predscatboost,macrocatboost,microcatboost,accuracycatboost,precisioncatboost,recallcatboost=CatboostIMPL(full_embeddings[train_idx], full_labels[train_idx],full_embeddings[test_idx],full_labels[test_idx])
+        predsxgboost,macroxgboost,microxgboost,accuracyxgboost,precisionxgboost,recallxgboost=xgboostIMPL(full_embeddings[train_idx], full_labels[train_idx],full_embeddings[test_idx],full_labels[test_idx])
+        
+        macrolistsvc.append(macrosvc)
+        microlistsvc.append(microsvc)
+        accuracylistsvc.append(accuracysvc)
+        precisionlistsvc.append(precisionsvc)
+        recalllistsvc.append(recallsvc)
+
+        macrolistlogreg.append(macrologreg)
+        microlistlogreg.append(micrologreg)
+        accuracylistlogreg.append(accuracylogreg)
+        precisionlistlogreg.append(precisionlogreg)
+        recalllistlogreg.append(recalllogreg)
+
+        macrolistrf.append(macrorf)
+        microlistrf.append(microrf)
+        accuracylistrf.append(accuracyrf)
+        precisionlistrf.append(precisionrf)
+        recalllistrf.append(recallrf)
+
+        macrolistadam.append(macroadam)
+        microlistadam.append(microadam)
+        accuracylistadam.append(accuracyadam)
+        precisionlistadam.append(precisionadam)
+        recalllistadam.append(recalladam)
+
+        macrolistranger.append(macroranger)
+        microlistranger.append(microranger)
+        accuracylistranger.append(accuracyranger)
+        precisionlistranger.append(precisionranger)
+        recalllistranger.append(recallranger)
+
+        macrolistcatboost.append(macrocatboost)
+        microlistcatboost.append(microcatboost)
+        accuracylistcatboost.append(accuracycatboost)
+        precisionlistcatboost.append(precisioncatboost)
+        recalllistcatboost.append(recallcatboost)
+
+        macrolistxgboost.append(macroxgboost)
+        microlistxgboost.append(microxgboost)
+        accuracylistxgboost.append(accuracyxgboost)
+        precisionlistxgboost.append(precisionxgboost)
+        recalllistxgboost.append(recallxgboost)
 
         if index==0:
             ConfusionMatrixIMPL(full_labels[test_idx],predssvc,"Confusion Matrix Support Vector Classifier")
             ConfusionMatrixIMPL(full_labels[test_idx],predslogreg,"Confusion Matrix Logistic Regression")
             ConfusionMatrixIMPL(full_labels[test_idx],predsrf,"Confusion Matrix Random Forest")
-            ConfusionMatrixIMPL(full_labels[test_idx],predsadam,"Confusion Matrix MLP (ADAM optmizer)")
+            ConfusionMatrixIMPL(full_labels[test_idx],predsadam,"Confusion Matrix MLP (ADAM optmizer)")            
+            ConfusionMatrixIMPL(full_labels[test_idx],predsranger,"Confusion Matrix Ranger Random Forest")
+            ConfusionMatrixIMPL(full_labels[test_idx],predscatboost,"Confusion Matrix Catboost")
+            ConfusionMatrixIMPL(full_labels[test_idx],predsxgboost,"Confusion Matrix Xgboost")
+        index=index+1
 
-    writeScore(name_model,dataset,attributed,supervised,macrosvc,microsvc,accuracysvc,precisionsvc,recallsvc)   
-    writeScore(name_model,dataset,attributed,supervised,macrologreg,micrologreg,accuracylogreg,precisionlogreg,recalllogreg)   
-    writeScore(name_model,dataset,attributed,supervised,macrorf,microrf,accuracyrf,precisionrf,recallrf)   
-    writeScore(name_model,dataset,attributed,supervised,macroadam,microadam,accuracyadam,precisionadam,recalladam)   
+    writeScore(name_model,dataset,attributed,supervised,macrolistsvc,microlistsvc,accuracylistsvc,precisionlistsvc,recalllistsvc,"SVC")   
+    writeScore(name_model,dataset,attributed,supervised,macrolistlogreg,microlistlogreg,accuracylistlogreg,precisionlistlogreg,recalllistlogreg,"Logistic Regression")   
+    writeScore(name_model,dataset,attributed,supervised,macrolistrf,microlistrf,accuracylistrf,precisionlistrf,recalllistrf,"Random Forest")   
+    writeScore(name_model,dataset,attributed,supervised,macrolistadam,microlistadam,accuracylistadam,precisionlistadam,recalllistadam,"MLP-Adam") 
+    writeScore(name_model,dataset,attributed,supervised,macrolistranger,microlistranger,accuracylistranger,precisionlistranger,recalllistranger,"Ranger Random Forest")   
+    writeScore(name_model,dataset,attributed,supervised,macrolistcatboost,microlistcatboost,accuracylistcatboost,precisionlistcatboost,recalllistcatboost,"Catboost")   
+    writeScore(name_model,dataset,attributed,supervised,macrolistxgboost,microlistxgboost,accuracylistxgboost,precisionlistxgboost,recalllistxgboost,"Xgboost") 
     #return np.mean(micro), np.mean(macro), np.mean(accuracy), np.mean(precision), np.mean(recall)
 
-def semisupervised_single_class_single_label(train_embeddings, train_labels, test_embeddings,test_labels,num_rip=1,seed=21, max_iter=100000):  
+def semisupervised_single_class_single_label(train_embeddings, train_labels, test_embeddings,test_labels,seed=21, max_iter=100000):  
     print("Start: semisupervised_single_class_single_label")
-    macrosvc,microsvc,accuracysvc,precisionsvc,recallsvc=[],[],[],[],[]
-    macrologreg,micrologreg,accuracylogreg,precisionlogreg,recalllogreg=[],[],[],[],[]
-    macrorf,microrf,accuracyrf,precisionrf,recallrf=[],[],[],[],[]
-    macroadam,microadam,accuracyadam,precisionadam,recalladam=[],[],[],[],[]
+       
+    predssvc, macrosvc, microsvc, accuracysvc, precisionsvc, recallsvc=SVCImpl(train_embeddings, train_labels,test_embeddings,test_labels,seed,max_iter)
+    predslogreg,macrologreg,micrologreg,accuracylogreg,precisionlogreg,recalllogreg=LogRegImpl(train_embeddings, train_labels,test_embeddings,test_labels,seed,max_iter)
+    predsrf,macrorf,microrf,accuracyrf,precisionrf,recallrf=RFImpl(train_embeddings, train_labels,test_embeddings,test_labels,seed,max_iter)
+    predsadam,macroadam,microadam,accuracyadam,precisionadam,recalladam=ADAMImpl(train_embeddings, train_labels,test_embeddings,test_labels,seed,max_iter)
+    predsranger,macroranger,microranger,accuracyranger,precisionranger,recallranger=RangerForestIMPL(train_embeddings, train_labels,test_embeddings,test_labels)
+    predscatboost,macrocatboost,microcatboost,accuracycatboost,precisioncatboost,recallcatboost=CatboostIMPL(train_embeddings, train_labels,test_embeddings,test_labels)
+    predsxgboost,macroxgboost,microxgboost,accuracyxgboost,precisionxgboost,recallxgboost=xgboostIMPL(train_embeddings, train_labels,test_embeddings,test_labels)
+    
+    ConfusionMatrixIMPL(test_labels,predssvc,"Confusion Matrix Support Vector Classifier")
+    ConfusionMatrixIMPL(test_labels,predslogreg,"Confusion Matrix Logistic Regression")
+    ConfusionMatrixIMPL(test_labels,predsrf,"Confusion Matrix Random Forest")
+    ConfusionMatrixIMPL(test_labels,predsadam,"Confusion Matrix MLP (ADAM optmizer)")
+    ConfusionMatrixIMPL(test_labels,predsranger,"Confusion Matrix Ranger Random Forest")
+    ConfusionMatrixIMPL(test_labels,predscatboost,"Confusion Matrix Catboost")
+    ConfusionMatrixIMPL(test_labels,predsxgboost,"Confusion Matrix Xgboost")
 
-    for _ in range(num_rip):
-        
-        predssvc, macrosvc, microsvc, accuracysvc, precisionsvc, recallsvc=SVCImpl(train_embeddings, train_labels,test_embeddings,test_labels,seed,max_iter)
-        predslogreg,macrologreg,micrologreg,accuracylogreg,precisionlogreg,recalllogreg=LogRegImpl(train_embeddings, train_labels,test_embeddings,test_labels,seed,max_iter)
-        predsrf,macrorf,microrf,accuracyrf,precisionrf,recallrf=RFImpl(train_embeddings, train_labels,test_embeddings,test_labels,seed,max_iter)
-        predsadam,macroadam,microadam,accuracyadam,precisionadam,recalladam=ADAMImpl(train_embeddings, train_labels,test_embeddings,test_labels,seed,max_iter)
-        
-        if _ == 0:
-            ConfusionMatrixIMPL(test_labels,predssvc,"Confusion Matrix Support Vector Classifier")
-            ConfusionMatrixIMPL(test_labels,predslogreg,"Confusion Matrix Logistic Regression")
-            ConfusionMatrixIMPL(test_labels,predsrf,"Confusion Matrix Random Forest")
-            ConfusionMatrixIMPL(test_labels,predsadam,"Confusion Matrix MLP (ADAM optmizer)")
-
-    writeScore(name_model,dataset,attributed,supervised,macrosvc,microsvc,accuracysvc,precisionsvc,recallsvc)   
-    writeScore(name_model,dataset,attributed,supervised,macrologreg,micrologreg,accuracylogreg,precisionlogreg,recalllogreg)   
-    writeScore(name_model,dataset,attributed,supervised,macrorf,microrf,accuracyrf,precisionrf,recallrf)   
-    writeScore(name_model,dataset,attributed,supervised,macroadam,microadam,accuracyadam,precisionadam,recalladam)   
+    writeScore(name_model,dataset,attributed,supervised,macrosvc,microsvc,accuracysvc,precisionsvc,recallsvc,"SVC")   
+    writeScore(name_model,dataset,attributed,supervised,macrologreg,micrologreg,accuracylogreg,precisionlogreg,recalllogreg,"Logistic Regression")   
+    writeScore(name_model,dataset,attributed,supervised,macrorf,microrf,accuracyrf,precisionrf,recallrf,"Random Forest")   
+    writeScore(name_model,dataset,attributed,supervised,macroadam,microadam,accuracyadam,precisionadam,recalladam,"MLP-Adam") 
+    writeScore(name_model,dataset,attributed,supervised,macroranger,microranger,accuracyranger,precisionranger,recallranger,"Ranger Random Forest")   
+    writeScore(name_model,dataset,attributed,supervised,macrocatboost,microcatboost,accuracycatboost,precisioncatboost,recallcatboost,"Catboost")   
+    writeScore(name_model,dataset,attributed,supervised,macroxgboost,microxgboost,accuracyxgboost,precisionxgboost,recallxgboost,"Xgboost")   
     #return np.mean(macro), np.mean(macro), np.mean(accuracy), np.mean(precision), np.mean(recall)
 
 def unsupervised_single_class_multi_label(label_file_path, label_test_path, emb_dict, seed=21, max_iter=10000):
@@ -278,7 +326,7 @@ def unsupervised_single_class_multi_label(label_file_path, label_test_path, emb_
     total_scoressvc,accuracylist2svc,precisionlist2svc,recalllist2svc = [], [], [], []
     total_scoreslogreg,accuracylist2logreg,precisionlist2logreg,recalllist2logreg = [], [], [], []
     total_scoresrf,accuracylist2rf,precisionlist2rf,recalllist2rf = [], [], [], []
-    total_scoreadam,accuracylist2adam,precisionlist2adam,recalllist2adam = [], [], [], []
+    total_scoresadam,accuracylist2adam,precisionlist2adam,recalllist2adam = [], [], [], []
     
     for ntype, binary_label in enumerate(binary_labels):
         
@@ -290,50 +338,69 @@ def unsupervised_single_class_multi_label(label_file_path, label_test_path, emb_
         skf = StratifiedKFold(n_splits=5,shuffle=True,random_state=seed)
         for train_idx, test_idx in skf.split(embs, binary_label):            
 
-            scoressvc,accuracylistsvc,precisionlistsvc,recalllistsvc=SVCImpl(embs[train_idx], binary_label[train_idx],embs[test_idx],binary_label[test_idx],seed,max_iter,single_label=False)
-            scoreslogreg,accuracylistlogreg,precisionlistlogreg,recalllistlogreg=LogRegImpl(embs[train_idx], binary_label[train_idx],embs[test_idx],binary_label[test_idx],seed,max_iter,single_label=False)
-            scoresrf,accuracylistrf,precisionlistrf,recalllistrf=RFImpl(embs[train_idx], binary_label[train_idx],embs[test_idx],binary_label[test_idx],seed,max_iter,single_label=False)
-            scoresadam,accuracylistadam,precisionlistadam,recalllistadam=ADAMImpl(embs[train_idx], binary_label[train_idx],embs[test_idx],binary_label[test_idx],seed,max_iter,single_label=False)
+            scoresvc,accuracysvc,precisionsvc,recallsvc=SVCImpl(embs[train_idx], binary_label[train_idx],embs[test_idx],binary_label[test_idx],seed,max_iter,single_label=False)
+            scorelogreg,accuracylogreg,precisionlogreg,recalllogreg=LogRegImpl(embs[train_idx], binary_label[train_idx],embs[test_idx],binary_label[test_idx],seed,max_iter,single_label=False)
+            scorerf,accuracyrf,precisionrf,recallrf=RFImpl(embs[train_idx], binary_label[train_idx],embs[test_idx],binary_label[test_idx],seed,max_iter,single_label=False)
+            scoreadam,accuracyadam,precisionadam,recalladam=ADAMImpl(embs[train_idx], binary_label[train_idx],embs[test_idx],binary_label[test_idx],seed,max_iter,single_label=False)
 
+            scoressvc.append(scoresvc)
+            accuracylistsvc.append(accuracysvc)
+            precisionlistsvc.append(precisionsvc)
+            recalllistsvc.append(recallsvc)
+
+            scoreslogreg.append(scorelogreg)
+            accuracylistlogreg.append(accuracylogreg)
+            precisionlistlogreg.append(precisionlogreg)
+            recalllistlogreg.append(recalllogreg)
+
+            scoresrf.append(scorerf)
+            accuracylistrf.append(accuracyrf)
+            precisionlistrf.append(precisionrf)
+            recalllistrf.append(recallrf)
+
+            scoresadam.append(scoreadam)
+            accuracylistadam.append(accuracyadam)
+            precisionlistadam.append(precisionadam)
+            recalllistadam.append(recalladam)
 
         weights.append(sum(binary_label))
-        total_scoressvc.append(sum(scoressvc)/5)
+
+        total_scoressvc.append(np.mean(scoressvc))
         accuracylist2svc.append(np.mean(accuracylistsvc))
         precisionlist2svc.append(np.mean(precisionlistsvc))
         recalllist2svc.append(np.mean(recalllistsvc))
 
-        total_scoreslogreg.append(sum(scoreslogreg)/5)
+        total_scoreslogreg.append(np.mean(scoreslogreg))
         accuracylist2logreg.append(np.mean(accuracylistlogreg))
         precisionlist2logreg.append(np.mean(precisionlistlogreg))
         recalllist2logreg.append(np.mean(recalllistlogreg))
 
-        total_scoresrf.append(sum(scoresrf)/5)
+        total_scoresrf.append(np.mean(scoresrf))
         accuracylist2rf.append(np.mean(accuracylistrf))
         precisionlist2rf.append(np.mean(precisionlistrf))
         recalllist2rf.append(np.mean(recalllistrf))
 
-        total_scoreadam.append(sum(scoresadam)/5)
+        total_scoresadam.append(np.mean(scoresadam))
         accuracylist2adam.append(np.mean(accuracylistadam))
         precisionlist2adam.append(np.mean(precisionlistadam))
         recalllist2adam.append(np.mean(recalllistadam))
 
-    #macrosvc = sum(total_scoressvc)/len(total_scoressvc)
+    macrosvc = sum(total_scoressvc)/len(total_scoressvc)
     microsvc = sum([score*weight for score, weight in zip(total_scoressvc, weights)])/sum(weights)
 
-    #macrologreg = sum(total_scoreslogreg)/len(total_scoreslogreg)
+    macrologreg = sum(total_scoreslogreg)/len(total_scoreslogreg)
     micrologreg = sum([score*weight for score, weight in zip(total_scoreslogreg, weights)])/sum(weights)
 
-    #macrorf = sum(total_scoresrf)/len(total_scoresrf)
+    macrorf = sum(total_scoresrf)/len(total_scoresrf)
     microrf = sum([score*weight for score, weight in zip(total_scoresrf, weights)])/sum(weights)
 
-    #macrorf = sum(total_scoresrf)/len(total_scoresrf)
-    microadam = sum([score*weight for score, weight in zip(total_scoreadam, weights)])/sum(weights)
-
-
-    writeScore(name_model,dataset,attributed,supervised,total_scoressvc,microsvc,accuracylist2svc,precisionlist2svc,recalllist2svc)    
-    writeScore(name_model,dataset,attributed,supervised,total_scoreslogreg,micrologreg,accuracylist2logreg,precisionlist2logreg,recalllist2logreg)    
-    writeScore(name_model,dataset,attributed,supervised,total_scoresrf,microrf,accuracylist2rf,precisionlist2rf,recalllist2rf)    
-    writeScore(name_model,dataset,attributed,supervised,total_scoreadam,microadam,accuracylist2adam,precisionlist2adam,recalllist2adam)    
+    macrorf = sum(total_scoresrf)/len(total_scoresrf)
+    microadam = sum([score*weight for score, weight in zip(total_scoresadam, weights)])/sum(weights)
+    
+    writeScore(name_model,dataset,attributed,supervised,macrosvc,microsvc,np.mean(accuracylist2svc),np.mean(precisionlist2svc),np.mean(recalllist2svc),"SVC")    
+    writeScore(name_model,dataset,attributed,supervised,macrologreg,micrologreg,np.mean(accuracylist2logreg),np.mean(precisionlist2logreg),np.mean(recalllist2logreg),"Logistic Regression")    
+    writeScore(name_model,dataset,attributed,supervised,macrorf,microrf,np.mean(accuracylist2rf),np.mean(precisionlist2rf),np.mean(recalllist2rf),"Random Forest")    
+    writeScore(name_model,dataset,attributed,supervised,macrorf,microadam,np.mean(accuracylist2adam),np.mean(precisionlist2adam),np.mean(recalllist2adam),"MLP-Adam")    
     #return macro, micro, accuracymean, precisionmean, recallmean
 
 def semisupervised_single_class_multi_label(label_file_path, label_test_path, emb_dict, seed=21, max_iter=10000):
@@ -362,18 +429,17 @@ def semisupervised_single_class_multi_label(label_file_path, label_test_path, em
     train_embs, test_embs = np.array(train_embs), np.array(test_embs)
     
     weights=[]
-    scoressvc,accuracylistsvc,precisionlistsvc,recalllistsvc,total_scoressvc = [], [], [], [], []
-    scoreslogreg,accuracylistlogreg,precisionlistlogreg,recalllistlogreg, total_scoreslogreg = [], [], [], [], []
-    scoresrf,accuracylistrf,precisionlistrf,recalllistrf, total_scoresrf = [], [], [], [], []
-    scoreadam,accuracylistadam,precisionlistadam,recalllistadam, total_scoresadam=[],[],[],[],[]
-
+    accuracylistsvc,precisionlistsvc,recalllistsvc,total_scoressvc = [], [], [], []
+    accuracylistlogreg,precisionlistlogreg,recalllistlogreg, total_scoreslogreg = [], [], [], []
+    accuracylistrf,precisionlistrf,recalllistrf, total_scoresrf = [], [], [], []
+    accuracylistadam,precisionlistadam,recalllistadam, total_scoresadam=[],[],[],[]
 
     for ntype, (train_label, test_label) in enumerate(zip(train_labels, test_labels)):           
 
-        scoressvc,accuracylistsvc,precisionlistsvc,recalllistsvc=SVCImpl(train_embs, train_labels,test_embs,test_labels,seed,max_iter,single_label=False)
-        scoreslogreg,accuracylistlogreg,precisionlistlogreg,recalllistlogreg=LogRegImpl(train_embs, train_labels,test_embs,test_labels,seed,max_iter,single_label=False)
-        scoresrf,accuracylistrf,precisionlistrf,recalllistrf=RFImpl(train_embs, train_labels,test_embs,test_labels,seed,max_iter,single_label=False)
-        scoresadam,accuracylistadam,precisionlistadam,recalllistadam=ADAMImpl(train_embs, train_labels,test_embs,test_labels,seed,max_iter,single_label=False)
+        scoressvc,accuracysvc,precisionsvc,recallsvc=SVCImpl(train_embs, train_label,test_embs,test_label,seed,max_iter,single_label=False)
+        scoreslogreg,accuracylogreg,precisionlogreg,recalllogreg=LogRegImpl(train_embs, train_label,test_embs,test_label,seed,max_iter,single_label=False)
+        scoresrf,accuracyrf,precisionrf,recallrf=RFImpl(train_embs, train_label,test_embs,test_label,seed,max_iter,single_label=False)
+        scoresadam,accuracyadam,precisionadam,recalladam=ADAMImpl(train_embs, train_label,test_embs,test_label,seed,max_iter,single_label=False)
 
         weights.append(sum(test_label))
         
@@ -381,25 +447,41 @@ def semisupervised_single_class_multi_label(label_file_path, label_test_path, em
         total_scoreslogreg.append(scoreslogreg)
         total_scoresrf.append(scoresrf)
         total_scoresadam.append(scoresadam)
+
+        accuracylistsvc.append(accuracysvc)
+        accuracylistlogreg.append(accuracylogreg)
+        accuracylistrf.append(accuracyrf)
+        accuracylistadam.append(accuracyadam)
+
+        precisionlistsvc.append(precisionsvc)
+        precisionlistlogreg.append(precisionlogreg)
+        precisionlistrf.append(precisionrf)
+        precisionlistadam.append(precisionadam)
+
+        recalllistsvc.append(recallsvc)
+        recalllistlogreg.append(recalllogreg)
+        recalllistrf.append(recallrf)
+        recalllistadam.append(recalladam)
         
-    #macrosvc = sum(total_scoressvc)/len(total_scoressvc)
+    macrosvc = sum(total_scoressvc)/len(total_scoressvc)
     microsvc = sum([score*weight for score, weight in zip(total_scoressvc, weights)])/sum(weights)
 
-    #macrologreg = sum(total_scoreslogreg)/len(total_scoreslogreg)
+    macrologreg = sum(total_scoreslogreg)/len(total_scoreslogreg)
     micrologreg = sum([score*weight for score, weight in zip(total_scoreslogreg, weights)])/sum(weights)
 
-    #macrorf = sum(total_scoresrf)/len(total_scoresrf)
+    macrorf = sum(total_scoresrf)/len(total_scoresrf)
     microrf = sum([score*weight for score, weight in zip(total_scoresrf, weights)])/sum(weights)
 
-    #macrorf = sum(total_scoresrf)/len(total_scoresrf)
+    macrorf = sum(total_scoresadam)/len(total_scoresadam)
     microadam = sum([score*weight for score, weight in zip(total_scoresadam, weights)])/sum(weights)
 
-    writeScore(name_model,dataset,attributed,supervised,total_scoressvc,microsvc,accuracylistsvc,precisionlistsvc,recalllistsvc)    
-    writeScore(name_model,dataset,attributed,supervised,total_scoreslogreg,micrologreg,accuracylistlogreg,precisionlistlogreg,recalllistlogreg)    
-    writeScore(name_model,dataset,attributed,supervised,total_scoresrf,microrf,accuracylistrf,precisionlistrf,recalllistrf)   
-    writeScore(name_model,dataset,attributed,supervised,total_scoresadam,microadam,accuracylistadam,precisionlistadam,recalllistadam)    
+    writeScore(name_model,dataset,attributed,supervised,macrosvc,microsvc,np.mean(accuracylistsvc),np.mean(precisionlistsvc),np.mean(recalllistsvc),"SVC")    
+    writeScore(name_model,dataset,attributed,supervised,macrologreg,micrologreg,np.mean(accuracylistlogreg),np.mean(precisionlistlogreg),np.mean(recalllistlogreg),"Logistic Regression")    
+    writeScore(name_model,dataset,attributed,supervised,macrorf,microrf,np.mean(accuracylistrf),np.mean(precisionlistrf),np.mean(recalllistrf),"Random Forest")   
+    writeScore(name_model,dataset,attributed,supervised,macrorf,microadam,np.mean(accuracylistadam),np.mean(precisionlistadam),np.mean(recalllistadam),"MLP-Adam") 
     #return macro, micro, accuracymean, precisionmean, recallmean
 
+from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
 def KMEANSImpl(train_embeddings, train_labels,testare_embeddings,n_clusters,label_originali=[],num_rip=None):
     print('STARTING KMEANS')
     if len(label_originali) > 0:
@@ -490,7 +572,7 @@ def community_detection_personale(name_model1,dataset1,attributed1,supervised1):
     name_file=name_model+'_'+dataset+stringadataset
 
     emb_file_path="/content/drive/MyDrive/Colab Notebooks/HNE-master/Model/"+name_model+"/data/"+dataset+stringadataset+"/emb.dat"
-
+    
     train_para, emb_dict=load(emb_file_path)
 
     print('Calcolo Micro, Macro, accuracy, precision, recall')
@@ -501,17 +583,17 @@ def community_detection_personale(name_model1,dataset1,attributed1,supervised1):
         if not supervised:
             unsupervised_single_class_single_label(full_embeddings, full_labels)
         else:
-            semisupervised_single_class_single_label(train_embeddings, train_labels, test_embeddings,test_labels,num_rip=10)
-            semisupervised_single_class_single_label_con_percentuale(train_embeddings, train_labels, test_embeddings,test_labels,num_rip=10)
+            semisupervised_single_class_single_label(train_embeddings, train_labels, test_embeddings,test_labels)
+            #semisupervised_single_class_single_label_con_percentuale(train_embeddings, train_labels, test_embeddings,test_labels,num_rip=10)
     elif dataset=="Yelp":
-        train_labels,train_embeddings,test_labels,test_embeddings=transformYelpSingleLabel(label_file_path,label_test_path,emb_dict)
-        full_embeddings = np.append(train_embeddings,test_embeddings,axis=0)
-        full_labels = np.append(train_labels,test_labels,axis=0)
+        #train_labels,train_embeddings,test_labels,test_embeddings=transformYelpSingleLabel(label_file_path,label_test_path,emb_dict)
+        #full_embeddings = np.append(train_embeddings,test_embeddings,axis=0)
+        #full_labels = np.append(train_labels,test_labels,axis=0)
         if not supervised:
             unsupervised_single_class_multi_label(label_file_path, label_test_path, emb_dict)
         else:
             semisupervised_single_class_multi_label(label_file_path, label_test_path, emb_dict)
-
+    
     n_clusters = len(set(full_labels))
       
     ######

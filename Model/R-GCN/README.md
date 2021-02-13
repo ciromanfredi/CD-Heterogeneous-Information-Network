@@ -28,7 +28,7 @@ This implementation relies on 2 external packages:
 ### Run
 
 Users need to specify the targeting dataset and the set of training parameters in ```run.sh```. <br /> 
-Run ```bash run.sh``` to start training.
+Run ```bash run - dataset_attributed_supervised.sh``` to start training.
 
 ### Output
 

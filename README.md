@@ -13,17 +13,11 @@ Please cite the following work if you find the data/code useful.
 }
 ```
 
-## Contact
-
-Please contact us if you have problems with the data/code, and also if you think your work is relevant but missing from the survey.
-
-Yuxin Xiao (yuxinx2@illinois.edu), Carl Yang (yangji9181@gmail.com)
-
 ## Guideline
 
 ### Stage 1: Data
 
-We provide 4 HIN benchmark datasets: ```DBLP```, ```Yelp```, ```Freebase```, and ```PubMed```.
+We provide 2 HIN benchmark datasets: ```Yelp``` and ```PubMed```.
 
 Each dataset contains:
 - 3 data files (```node.dat```, ```link.dat```, ```label.dat```);
@@ -43,10 +37,10 @@ Please refer to the ```Transform``` folder for more details.
 
 ### Stage 3: Model
 
-We provide 13 HIN baseline implementaions: 
-- 5 Proximity-Preserving Methods (```metapath2vec-ESim```, ```PTE```, ```HIN2Vec```, ```AspEm```, ```HEER```); 
-- 4 Message-Passing Methods (```R-GCN```, ```HAN```, ```MAGNN```, ```HGT```); 
-- 4 Relation-Learning Methods (```TransE```, ```DistMult```, ```ComplEx```, ```ConvE```).
+We provide 4 HIN baseline implementaions: 
+- 1 Proximity-Preserving Methods (```HIN2Vec```, ```AspEm```); 
+- 2 Message-Passing Methods (```R-GCN```, ```HAN```); 
+- 1 Relation-Learning Methods (```ComplEx```).
 
 Please refer to the ```Model``` folder for more details.
 
