@@ -24,6 +24,6 @@ Run :<br />
 ```community_detection_personale(name_model,dataset,attributed,supervised)```<br />
 to complete *Stage 4: Evaluate*.
 
-The evaluation results are stored in :
+The evaluation results are stored in :<br />
 -**```PubMedScore.txt```** if you choose PubMed dataset,<br />
 -**```YelpScore.txt```** if you choose Yelp dataset
