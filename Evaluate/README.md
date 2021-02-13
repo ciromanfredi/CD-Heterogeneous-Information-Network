@@ -19,11 +19,11 @@ Users need to specify the following input parameters when calling the function
 - **Yelp** : We train 4 Classifiers (SVC,Logistic Regression, Random Forest, MLP-Adam) to perform binary classification in order to address the multi-label classification problem. The training is based on the learned embeddings on 80% of the labeled nodes and the prediction is on the remaining 20%. We repeat the process for standard five-fold cross validation and compute the average scores regarding:
  ```Macro-F1```,```Micro-F1```,```Accuracy```,```Precision```,```Recall```
 
-Run :
--**```from CDHIN import community_detection_personale```**
--**```community_detection_personale(name_model,dataset,attributed,supervised)```**
+Run :<br />
+```from CDHIN import community_detection_personale```<br />
+```community_detection_personale(name_model,dataset,attributed,supervised)```<br />
 to complete *Stage 4: Evaluate*.
 
 The evaluation results are stored in :
--**```PubMedScore.txt```** if you choose PubMed dataset,
+-**```PubMedScore.txt```** if you choose PubMed dataset,<br />
 -**```YelpScore.txt```** if you choose Yelp dataset
