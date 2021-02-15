@@ -6,16 +6,22 @@ from collections import Counter
 from sklearn.cluster import KMeans
 import networkx as nx
 import networkx.algorithms.community as nxcom
+
 float_formatter = "{:.3f}".format
 np.set_printoptions(formatter={'float_kind':float_formatter})
-    
+directoryCurrent="/content/drive/MyDrive/Colab Notebooks/HNE-gitHub/"
+
 def creoTrainTestLabel(label_file_path,label_test_path,emb_dict):
     train_index, train_labels, train_embeddings =[], [], []
     with open(label_file_path,'r') as label_file:
         for line in label_file:
             index, _, _, label = line[:-1].split('\t')
             train_index.append(index)
-            train_labels.append(label)
+            listLabel=label.split(",")
+            if len(listLabel)==1:
+                train_labels.append(label)
+            else:
+                train_labels.append(listLabel[0])
             train_embeddings.append(emb_dict[index])    
     train_index,train_labels, train_embeddings =np.array(train_index).astype(int), np.array(train_labels).astype(int), np.array(train_embeddings)  
     
@@ -24,7 +30,11 @@ def creoTrainTestLabel(label_file_path,label_test_path,emb_dict):
         for line in label_file:
             index, _, _, label = line[:-1].split('\t')
             test_index.append(index)
-            test_labels.append(label)
+            listLabel=label.split(",")
+            if len(listLabel)==1:
+                train_labels.append(label)
+            else:
+                train_labels.append(listLabel[0])
             test_embeddings.append(emb_dict[index])    
     test_index, test_labels, test_embeddings =np.array(test_index).astype(int), np.array(test_labels).astype(int), np.array(test_embeddings)
     return train_index,test_index,train_labels,train_embeddings,test_labels,test_embeddings
@@ -82,7 +92,7 @@ def CreoEmbFromPath(emb_file_path):
     return train_para, embeddings
 
 def writeScore(name_model,dataset,attributed,supervised,macro,micro,accuracy,precision,recall,classifier):
-    f = open("/content/drive/MyDrive/Colab Notebooks/HNE-master/Evaluate/"+dataset+"_Score.txt", "a+")
+    f = open(directoryCurrent+"Evaluate/Results/"+dataset+"_Score.txt", "a+")
     f.write("Model: "+str(name_model)+", Dataset: "+str(dataset)+", Attributed: "+str(attributed)+", Supervised: "+str(supervised)+", Classifier: "+str(classifier))
     f.write('\nMacro-F1: '+str(np.mean(macro))+' STD: '+str(np.std(macro)))
     f.write('\nMicro-F1: '+str(np.mean(micro))+' STD: '+str(np.std(micro)))
@@ -93,7 +103,7 @@ def writeScore(name_model,dataset,attributed,supervised,macro,micro,accuracy,pre
     f.close()
 
 def writeClusteringScore(name_model,dataset,attributed,supervised,nmi_list,ari_list):
-    f = open("/content/drive/MyDrive/Colab Notebooks/HNE-master/Evaluate/"+dataset+"_Score.txt", "a+")
+    f = open(directoryCurrent+"Evaluate/Results/"+dataset+"_Score.txt", "a+")
     f.write("Model: "+str(name_model)+", Dataset: "+str(dataset)+", Attributed: "+str(attributed)+", Supervised: "+str(supervised)+"\n")
     f.write('NMI_score: ')
     f.write(str(np.mean(nmi_list))+ ", StdNMI: " + str(np.std(nmi_list)))
@@ -187,8 +197,8 @@ from sklearn.metrics import confusion_matrix
 def ConfusionMatrixIMPL(test_labels,preds,txt="Confusion Matrix"):
     cm = confusion_matrix(test_labels,preds)
     cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    print(txt)
-    print(cm)   
+    #print(txt)
+    #print(cm)   
 
 def unsupervised_single_class_single_label(full_embeddings, full_labels,n_splits=5,seed=21,max_iter=10000):    
     print("Start: unsupervised_single_class_single_label")
@@ -511,16 +521,16 @@ def creoGraphNetworkX(emb_dict):
         G.add_node(index, attr = list(embeddings))
 
     # ADD EDGE
-    archi = open("/content/drive/MyDrive/Colab Notebooks/HNE-master/Data/"+dataset+"/link.dat")
+    archi = open(directoryCurrent+"Data/"+dataset+"/link.dat")
     for arco in archi:
         elementi=str(arco).split('\t')
         if elementi[0] in G.nodes():
             G.add_edge(elementi[0],elementi[1],type=elementi[2],weight=int(elementi[3]))
 
-    print('G.number_of_nodes()')
-    print(G.number_of_nodes())
-    print('G.number_of_edges()')
-    print(G.number_of_edges())
+    #print('G.number_of_nodes()')
+    #print(G.number_of_nodes())
+    #print('G.number_of_edges()')
+    #print(G.number_of_edges())
     
     return G
 
@@ -556,8 +566,8 @@ def community_detection_personale(name_model1,dataset1,attributed1,supervised1):
     global supervised
     supervised=supervised1
 
-    label_file_path="/content/drive/MyDrive/Colab Notebooks/HNE-master/Data/"+dataset+"/label.dat"
-    label_test_path="/content/drive/MyDrive/Colab Notebooks/HNE-master/Data/"+dataset+"/label.dat.test"
+    label_file_path=directoryCurrent+"Data/"+dataset+"/label.dat"
+    label_test_path=directoryCurrent+"Data/"+dataset+"/label.dat.test"
 
 
     stringadataset=''
@@ -571,7 +581,7 @@ def community_detection_personale(name_model1,dataset1,attributed1,supervised1):
         stringadataset=stringadataset+'False'
     name_file=name_model+'_'+dataset+stringadataset
 
-    emb_file_path="/content/drive/MyDrive/Colab Notebooks/HNE-master/Model/"+name_model+"/data/"+dataset+stringadataset+"/emb.dat"
+    emb_file_path=directoryCurrent+"Model/"+name_model+"/data/"+dataset+stringadataset+"/emb.dat"
     
     train_para, emb_dict=load(emb_file_path)
 
@@ -584,11 +594,7 @@ def community_detection_personale(name_model1,dataset1,attributed1,supervised1):
             unsupervised_single_class_single_label(full_embeddings, full_labels)
         else:
             semisupervised_single_class_single_label(train_embeddings, train_labels, test_embeddings,test_labels)
-            #semisupervised_single_class_single_label_con_percentuale(train_embeddings, train_labels, test_embeddings,test_labels,num_rip=10)
     elif dataset=="Yelp":
-        #train_labels,train_embeddings,test_labels,test_embeddings=transformYelpSingleLabel(label_file_path,label_test_path,emb_dict)
-        #full_embeddings = np.append(train_embeddings,test_embeddings,axis=0)
-        #full_labels = np.append(train_labels,test_labels,axis=0)
         if not supervised:
             unsupervised_single_class_multi_label(label_file_path, label_test_path, emb_dict)
         else:
@@ -603,37 +609,32 @@ def community_detection_personale(name_model1,dataset1,attributed1,supervised1):
     #         Plot dello spazio embeddings di test con le label predette dal kMeans
     test_labels_predette=KMEANSImpl(train_embeddings, train_labels,test_embeddings,n_clusters)
     test_embeddings_2D=TSNEImpl(test_embeddings)
-    PLOTImpl(test_embeddings_2D,test_labels_predette,name_file+'Caso1.png',dim=40)
+    PLOTImpl(test_embeddings_2D,test_labels_predette,"Results/"+name_file+'Caso1.png',dim=40)
 
     #######
     print('Caso 2')
     #Caso3 -> Plot di tutto lo spazio embeddings (train + test embeddings) con label di default (prese dai file)     
     full_embeddings_2D=TSNEImpl(full_embeddings)
-    PLOTImpl(full_embeddings_2D,full_labels,name_file+'Caso2',dim=15)
+    PLOTImpl(full_embeddings_2D,full_labels,"Results/"+name_file+'Caso2',dim=15)
     
     #######
     print('Caso 3')
     #Caso4 -> KMEANS addestrato su full embeddings (train + test embeddings) e full label (train + test dai file) 
     #         eseguito sull'embeddings intero prodotto dal modello
     #         Plot del embeddings intero prodotto dal modello con le label predette dal kmeans
-
     indexEmbeddingsFromModel,embeddingsFromModel=CreoEmbFromDictEmb(emb_dict)
-
     labels_model_predette=KMEANSImpl(full_embeddings, full_labels,embeddingsFromModel,n_clusters)
-
     embeddingsFromModel_2D=TSNEImpl(embeddingsFromModel)
-    PLOTImpl(embeddingsFromModel_2D,labels_model_predette,name_file+'Caso3.png',dim=2)
+    PLOTImpl(embeddingsFromModel_2D,labels_model_predette,"Results/"+name_file+'Caso3.png',dim=2)
 
     ###### MODULARITY ######
     print('Calcolo Modularity')
     listafrozenset=fromIndexLabelCreateCommunityNetworkX(indexEmbeddingsFromModel,labels_model_predette)
     G=creoGraphNetworkX(emb_dict)
     modularity = nxcom.modularity(G,listafrozenset)
-    f = open("/content/drive/MyDrive/Colab Notebooks/HNE-master/Evaluate/"+dataset+"_Modularity.txt", "a+")
+    f = open(directoryCurrent+"Evaluate/Results/"+dataset+"_Score.txt", "a+")
     f.write("Model: "+str(name_model)+", Dataset: "+str(dataset)+", Attributed: "+str(attributed)+", Supervised: "+str(supervised)+"\n")
-    f.write('Modularity: ')
-    f.write(str(modularity))
-    f.write("\n\n")
+    f.write('Modularity: '+str(modularity)+"\n\n")
     f.close()
-    print('modularity')
-    print(modularity)
+    #print('modularity')
+    #print(modularity)
