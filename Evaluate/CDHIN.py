@@ -113,7 +113,6 @@ def writeClusteringScore(name_model,dataset,attributed,supervised,nmi_list,ari_l
     f.close()
 
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
-
 def single_label_metrics(test_labels,preds):
     macro=f1_score(test_labels, preds, average='macro')
     micro=f1_score(test_labels, preds, average='micro')
