@@ -508,7 +508,7 @@ def KMEANSImpl(train_embeddings, train_labels,testare_embeddings,n_clusters,labe
         return y_pred
     else:
         kmeans = KMeans(n_clusters=n_clusters)
-        kmeans.fit_predict(train_embeddings, train_labels)
+        kmeans.fit(train_embeddings)
         labels_pred = kmeans.predict(testare_embeddings)
         return labels_pred
 
